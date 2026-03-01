@@ -1,0 +1,45 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: agent-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - agent-network
+
+  agent-framework:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: agent-framework
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen3:4b
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - agent-network
+
+volumes:
+  ollama-data:
+    driver: local
+
+networks:
+  agent-network:
+    driver: bridge
