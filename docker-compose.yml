@@ -17,6 +17,39 @@ services:
     networks:
       - agent-network
 
+  qwen3-tts:
+    image: ${QWEN3_TTS_IMAGE:-qwen3-tts-api:blackwell-local}
+    build:
+      context: ./external/qwen3-tts-api
+      dockerfile: Dockerfile.blackwell
+    container_name: qwen3-tts
+    ports:
+      - "8880:8880"
+    environment:
+      - PORT=8880
+      - HOST=0.0.0.0
+      - DEVICE=cuda:0
+      - DTYPE=bfloat16
+      - USE_FLASH_ATTENTION=false
+      - MODEL_NAME=Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+      - MODEL_CACHE_DIR=/cache
+      - LOCAL_FILES_ONLY=false
+      - HF_HOME=/cache
+      - HF_TOKEN=${HF_TOKEN:-}
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - qwen3-tts-cache:/cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - agent-network
+
   agent-framework:
     build:
       context: .
@@ -30,14 +63,24 @@ services:
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=qwen3:4b
+      - TTS_BASE_URL=http://qwen3-tts:8880
+      - TTS_MODEL=Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+      - TTS_VOICE=Ono_Anna
+      - TTS_RESPONSE_FORMAT=wav
+      - MOUTH_INTERVAL_MS=150
+      - MOUTH_OPEN_VALUE=0.5
+      - MOUTH_CLOSED_VALUE=0.0
     depends_on:
       - ollama
+      - qwen3-tts
     restart: unless-stopped
     networks:
       - agent-network
 
 volumes:
   ollama-data:
+    driver: local
+  qwen3-tts-cache:
     driver: local
 
 networks:
