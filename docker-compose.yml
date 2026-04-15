@@ -5,7 +5,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama-data:/root/.ollama
+      - D:/data/ollama-data:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -57,12 +57,14 @@ services:
     container_name: agent-framework
     ports:
       - "8000:8000"
+      - "${INTERACTION_WS_PORT:-8001}:${INTERACTION_WS_PORT:-8001}"
     volumes:
       - ./src:/app/src
       - ./data:/app/data
+      - ./Execution_scripts:/app/Execution_scripts
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen3:4b
+      - OLLAMA_MODEL=phi3:mini
       - TTS_BASE_URL=http://qwen3-tts:8880
       - TTS_MODEL=Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
       - TTS_VOICE=Ono_Anna
@@ -70,6 +72,22 @@ services:
       - MOUTH_INTERVAL_MS=150
       - MOUTH_OPEN_VALUE=0.5
       - MOUTH_CLOSED_VALUE=0.0
+      - INTERACTION_WS_PORT=${INTERACTION_WS_PORT:-8001}
+      - INTERACTION_SCHEMA=head_pat_v1
+      - INTERACTION_AUTO_REACT=1
+      - OLLAMA_VISION_MODEL=${OLLAMA_VISION_MODEL:-llava:7b}
+      - STREAMER_VISION_MODEL=${STREAMER_VISION_MODEL:-llava:7b}
+      - STREAMER_STT_ENABLED=${STREAMER_STT_ENABLED:-0}
+      - STREAMER_TTS_ENABLED=${STREAMER_TTS_ENABLED:-0}
+      - STREAMER_OBS_HOST=${STREAMER_OBS_HOST:-host.docker.internal}
+      - STREAMER_OBS_PORT=${STREAMER_OBS_PORT:-4455}
+      - STREAMER_OBS_PASSWORD=${STREAMER_OBS_PASSWORD:-}
+      - STREAMER_OBS_SOURCE_NAME=${STREAMER_OBS_SOURCE_NAME:-}
+      - STREAMER_OBS_WIDTH=${STREAMER_OBS_WIDTH:-960}
+      - STREAMER_OBS_HEIGHT=${STREAMER_OBS_HEIGHT:-540}
+      - STREAMER_OBS_MIN_INTERVAL_MS=${STREAMER_OBS_MIN_INTERVAL_MS:-400}
+      - STREAMER_STT_MODEL_SIZE=${STREAMER_STT_MODEL_SIZE:-small}
+      - STREAMER_STT_LANGUAGE=${STREAMER_STT_LANGUAGE:-en}
     depends_on:
       - ollama
       - qwen3-tts
