@@ -4,8 +4,16 @@ services:
     container_name: agent-ollama
     ports:
       - "11434:11434"
+    # On first start, pull models (comma-separated). Defaults to same as OLLAMA_MODEL used by agent-framework.
+    # Example extra models: OLLAMA_PULL_MODELS=phi3:mini,llava:7b
+    environment:
+      - OLLAMA_PULL_MODELS=${OLLAMA_PULL_MODELS:-${OLLAMA_MODEL:-phi3:mini}}
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - tr -d '\r' < /app/Execution_scripts/ollama_docker_entrypoint.sh > /tmp/ollama_docker_entrypoint.sh && chmod +x /tmp/ollama_docker_entrypoint.sh && /bin/sh /tmp/ollama_docker_entrypoint.sh
     volumes:
       - D:/data/ollama-data:/root/.ollama
+      - ./Execution_scripts:/app/Execution_scripts:ro
     deploy:
       resources:
         reservations:
@@ -31,7 +39,7 @@ services:
       - DEVICE=cuda:0
       - DTYPE=bfloat16
       - USE_FLASH_ATTENTION=false
-      - MODEL_NAME=Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+      - MODEL_NAME=Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
       - MODEL_CACHE_DIR=/cache
       - LOCAL_FILES_ONLY=false
       - HF_HOME=/cache
@@ -64,9 +72,11 @@ services:
       - ./Execution_scripts:/app/Execution_scripts
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=phi3:mini
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-phi3:mini}
+      - TZ=${TZ:-America/New_York}
+      - APP_TIMEZONE=${APP_TIMEZONE:-America/New_York}
       - TTS_BASE_URL=http://qwen3-tts:8880
-      - TTS_MODEL=Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+      - TTS_MODEL=Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
       - TTS_VOICE=Ono_Anna
       - TTS_RESPONSE_FORMAT=wav
       - MOUTH_INTERVAL_MS=150
@@ -88,6 +98,8 @@ services:
       - STREAMER_OBS_MIN_INTERVAL_MS=${STREAMER_OBS_MIN_INTERVAL_MS:-400}
       - STREAMER_STT_MODEL_SIZE=${STREAMER_STT_MODEL_SIZE:-small}
       - STREAMER_STT_LANGUAGE=${STREAMER_STT_LANGUAGE:-en}
+      - OUTLOOK_BRIDGE_URL=${OUTLOOK_BRIDGE_URL:-http://host.docker.internal:8765}
+      - OUTLOOK_BRIDGE_TIMEOUT_SEC=${OUTLOOK_BRIDGE_TIMEOUT_SEC:-25}
     depends_on:
       - ollama
       - qwen3-tts
