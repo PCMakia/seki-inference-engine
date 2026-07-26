@@ -50,3 +50,9 @@ __pycache__/
 *.py[cod]
 .venv/
 agent-core/.venv/
+agent-core/outputs-seki-qwen-3b/
+agent-core/seki-qwen-3b/
+.venv-unsloth/
+
+unsloth_compiled_cache/
+**/unsloth_compiled_cache/
