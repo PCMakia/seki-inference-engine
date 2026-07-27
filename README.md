@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Seki Discord
 
-## Getting Started
+Control plane and Discord agent for **Seki Amahara** — authenticated Next.js dashboard, agent APIs, hybrid LLM routing, dual embeddings, and a fine-tuned local Qwen voice model.
 
-First, run the development server:
+## Stack
+
+- **Control plane:** Next.js 14 (App Router), Auth.js, Prisma, PostgreSQL + pgvector
+- **Agent core:** Python `discord.py` bot → `/api/v1/agent/*` with `x-agent-api-key`
+- **LLMs:** NVIDIA NIM (primary) + local Ollama (fallback / fine-tuned Seki voice)
+- **Embeddings:** Ollama `nomic-embed-text` (default) or OpenAI `text-embedding-3-small`
+
+## Quick start
+
+### 1. Control plane
 
 ```bash
+cp .env.example .env
+# set DATABASE_URL, AUTH secrets, SEKI_AGENT_API_KEY, optional NVIDIA/OpenAI keys
+npm install
+npx prisma migrate deploy
+npx prisma db seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Discord agent
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd agent-core
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+# set DISCORD_TOKEN, SEKI_AGENT_API_KEY, CONTROL_PLANE_URL, channel IDs
+python bot.py
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Local Seki voice (Ollama)
 
-## Learn More
+After QLoRA export, place the `.gguf` next to the Modelfile (not committed — see `docs/QLORA_TRAINING.md`), then:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cd agent-core/seki-qwen-3b_gguf
+ollama create seki-qwen-3b -f Modelfile
+ollama run seki-qwen-3b
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Point the bot local fallback / Ollama model name at `seki-qwen-3b` when ready.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Training (optional)
 
-## Deploy on Vercel
+See [docs/QLORA_TRAINING.md](docs/QLORA_TRAINING.md). On Windows, use:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```powershell
+cd agent-core
+powershell -ExecutionPolicy Bypass -File training/run_train_windows.ps1
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+Private lab project.

@@ -56,3 +56,6 @@ agent-core/seki-qwen-3b/
 
 unsloth_compiled_cache/
 **/unsloth_compiled_cache/
+
+# Local model weights (keep Modelfile; generate/export GGUF via training)
+*.gguf

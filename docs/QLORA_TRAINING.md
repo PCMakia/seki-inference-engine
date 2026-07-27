@@ -117,3 +117,13 @@ Training is independent of embeddings, but runtime memory search now defaults to
 `text-embedding-3-small` (1536-d → `embedding`) remains optional via dashboard
 **Embedding Provider** — `OPENAI_API_KEY` is only required when that toggle is
 set to OpenAI.
+
+## 6. Packaged Ollama Modelfile
+
+A ready Modelfile lives at `agent-core/seki-qwen-3b_gguf/Modelfile`. Copy your exported
+`Q5_K_M` GGUF into that folder (gitignored), then:
+
+```bash
+cd agent-core/seki-qwen-3b_gguf
+ollama create seki-qwen-3b -f Modelfile
+```
