@@ -1,9 +1,9 @@
 #!/bin/sh
 # Start Ollama server, wait until the API responds, then pull models listed in
-# OLLAMA_PULL_MODELS (comma-separated). Used by docker-compose for agent-ollama.
+# OLLAMA_PULL_MODELS (comma-separated). Used by docker-compose for seki-ollama.
 #
-# Set in compose: OLLAMA_PULL_MODELS=${OLLAMA_MODEL:-phi3:mini}
-# Optional extras: OLLAMA_PULL_MODELS=phi3:mini,llava:7b
+# Set in compose: OLLAMA_PULL_MODELS=${OLLAMA_MODEL:-qwen2.5:3b}
+# Embeddings fallback: include nomic-embed-text in OLLAMA_PULL_MODELS.
 
 set -e
 
