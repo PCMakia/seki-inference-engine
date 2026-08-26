@@ -11,6 +11,7 @@ from tests.fakes import FakeBackend, unavailable
 
 
 def test_health_unauthenticated(client: TestClient) -> None:
+    """Probes must not 500 through the Prometheus middleware (FastAPI include_router)."""
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}

@@ -12,6 +12,7 @@ from app import __version__
 from app.backends.failover import FailoverRouter
 from app.backends.openai_compat import OpenAICompatBackend
 from app.config import get_settings
+from app.metrics import setup_metrics
 from app.routers import chat, embeddings, health
 
 logger = logging.getLogger("seki.inference")
@@ -74,6 +75,7 @@ def create_app(*, inference_router: FailoverRouter | None = None) -> FastAPI:
     application.include_router(health.router)
     application.include_router(chat.router)
     application.include_router(embeddings.router)
+    setup_metrics(application)
     return application
 
 
