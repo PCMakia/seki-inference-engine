@@ -1,7 +1,7 @@
-# Verify seki-inference-engine on localhost:8000 (laptop / Ollama failover).
+# Verify seki-inference-engine on localhost:9000 (compose host publish).
 $ErrorActionPreference = "Stop"
 $base = $env:INFERENCE_URL
-if (-not $base) { $base = "http://localhost:8000" }
+if (-not $base) { $base = "http://localhost:9000" }
 $base = $base.TrimEnd("/")
 if ($base.EndsWith("/v1")) { $base = $base.Substring(0, $base.Length - 3).TrimEnd("/") }
 $key = $env:INFERENCE_API_KEY

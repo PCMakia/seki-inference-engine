@@ -2,20 +2,25 @@ services:
   vllm:
     profiles: ["gpu"]
     image: vllm/vllm-openai:latest
-    container_name: seki-vllm
+    container_name: seki-v2-vllm
     ipc: host
     command: >
-      --model ${MODEL_NAME}
-      --served-model-name ${MODEL_NAME}
+      --model ${MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}
+      --served-model-name ${MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}
       --host 0.0.0.0
       --port 8000
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION:-0.70}
+      --max-model-len ${VLLM_MAX_MODEL_LEN:-4096}
     environment:
       HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
       HF_TOKEN: ${HF_TOKEN:-}
+      # Docker Desktop (WSL2) disables pinned memory by default; V2 runner then
+      # raises "UVA is not available". See vllm-project/vllm#43381.
+      VLLM_WSL2_ENABLE_PIN_MEMORY: ${VLLM_WSL2_ENABLE_PIN_MEMORY:-1}
     volumes:
       - ${HF_CACHE_PATH:-D:/data/huggingface}:/root/.cache/huggingface
     ports:
-      - "8001:8000"
+      - "${VLLM_HOST_PORT:-9001}:8000"
     deploy:
       resources:
         reservations:
@@ -29,9 +34,9 @@ services:
 
   ollama:
     image: ollama/ollama:latest
-    container_name: seki-ollama
+    container_name: seki-v2-ollama
     ports:
-      - "11434:11434"
+      - "${OLLAMA_HOST_PORT:-9114}:11434"
     environment:
       - OLLAMA_PULL_MODELS=${OLLAMA_PULL_MODELS:-${OLLAMA_MODEL:-qwen2.5:3b}}
     entrypoint: ["/bin/sh", "-lc"]
@@ -54,9 +59,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: seki-inference-engine
+    container_name: seki-v2-inference
     ports:
-      - "${PORT:-8000}:8000"
+      - "${INFERENCE_HOST_PORT:-9000}:8000"
     environment:
       - API_KEY=${API_KEY:-change-me}
       - MODEL_NAME=${MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}

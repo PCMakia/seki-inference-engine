@@ -14,7 +14,7 @@ docker compose up --build
 
 Wait until `docker compose ps` shows `inference` as healthy. First Ollama start may pull `qwen2.5:3b` and `nomic-embed-text` (several minutes).
 
-Default `docker compose up` does **not** start `seki-vllm`.
+Default `docker compose up` does **not** start `seki-v2-vllm`.
 
 ## 2. Record a successful completion (failover path)
 
@@ -37,7 +37,7 @@ docker compose --profile gpu up --build
 # ... wait until /ready has "vllm": true ...
 # completion header should be x-seki-backend: vllm
 
-docker stop seki-vllm
+docker stop seki-v2-vllm
 # same curl — header must become x-seki-backend: ollama
 ```
 
@@ -52,4 +52,5 @@ docker compose up --build
 docker compose --profile gpu up --build
 ```
 
-Agent-core is on host port **8080**. GUI: `AGENT_BASE_URL=http://127.0.0.1:8080`.
+Agent-core is on host port **9080**. GUI: `AGENT_BASE_URL=http://127.0.0.1:9080`.
+Gateway is on **9000**; Ollama host publish is **9114**.
