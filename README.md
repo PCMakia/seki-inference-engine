@@ -1,105 +1,101 @@
 # seki-inference-engine
 
-Production FastAPI gateway for LLM inference and embeddings.
+OpenAI-compatible FastAPI gateway that sits in front of **vLLM** (primary) and **Ollama** (failover). Other Seki services do not import this package; they call `/v1/chat/completions` and `/v1/embeddings`.
 
-The service exposes an OpenAI-compatible HTTP API. **vLLM** is the primary
-backend. Requests fail over to **local Ollama** only when vLLM raises a
-timeout or connection error. Other vLLM HTTP errors (4xx/5xx) are returned
-to the client unchanged.
+## What this solves (and why it matters)
 
-Do not import this package from other repos. Call the HTTP API.
+Local stacks often hard-code one runtime. This repo is the serving contract: one Bearer-auth `/v1` API, one model name, and a header (`x-seki-backend`) that tells you whether the GPU engine or the laptop fallback answered.
 
-## Endpoints
+Give it a try if you:
 
-| Method | Path | Auth | Description |
+- Need **vLLM in production shape** with a documented failover instead of a crash when CUDA is busy
+- Want **Prometheus** on gateway wall time, backend choice, and failover count (`GET /metrics`)
+- Are showing **ML platform / inference** work: health vs ready, timeouts vs application 4xx, CI that builds the image
+
+It does **not** host the Discord personality or the memory graph. Those live in `seki-agent-core`.
+
+| Method | Path | Auth | Role |
 |---|---|---|---|
-| `GET` | `/health` | no | Process liveness |
-| `GET` | `/ready` | no | Ready when vLLM **or** Ollama answers `/models` |
-| `POST` | `/v1/chat/completions` | Bearer | OpenAI Chat Completions (streaming supported) |
-| `POST` | `/v1/embeddings` | Bearer | OpenAI Embeddings |
+| `GET` | `/health` | no | Process is up |
+| `GET` | `/ready` | no | vLLM **or** Ollama can list models |
+| `GET` | `/metrics` | no | Prometheus scrape |
+| `POST` | `/v1/chat/completions` | Bearer | Chat (streaming supported) |
+| `POST` | `/v1/embeddings` | Bearer | Embeddings |
 
-Successful `/v1` responses include `x-seki-backend: vllm` or `x-seki-backend: ollama`.
+## Hardware and prerequisites
 
-## Configuration
+**Laptop / demo (no vLLM)**  
+CPU or any NVIDIA GPU that can run Ollama. A 6 GB card (for example GTX 1660 Ti) is enough for `qwen2.5:3b` in Ollama. Default Compose **does not** start vLLM.
 
-Copy `.env.example` to `.env`. Required / important variables:
+**GPU box (vLLM primary)**  
+- NVIDIA GPU with driver + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+- About **11 GB free VRAM** for `Qwen/Qwen2.5-3B-Instruct` at `--gpu-memory-utilization 0.70` and `--max-model-len 4096` (tuned for RTX 5070 Ti-class 16 GB cards that already have a desktop / old container using ~1 GB)
+- Docker Desktop or Docker Engine with Compose v2
+- Hugging Face token if the model gated (`HF_TOKEN`)
+- Optional host cache: `HF_CACHE_PATH` (Windows example `D:/data/huggingface`)
 
-| Variable | Purpose |
-|---|---|
-| `API_KEY` | Bearer token for `/v1/*` |
-| `MODEL_NAME` | Default chat model (vLLM served name / Hugging Face id) |
-| `EMBEDDING_MODEL_NAME` | Default embedding model sent to vLLM |
-| `REQUEST_TIMEOUT` | Upstream timeout in seconds (vLLM and Ollama) |
-| `VLLM_BASE_URL` | Primary OpenAI-compatible base, e.g. `http://localhost:8001/v1` |
-| `OLLAMA_BASE_URL` | Fallback OpenAI-compatible base, e.g. `http://localhost:11434/v1` |
-| `OLLAMA_MODEL` | Chat model used on failover |
-| `OLLAMA_EMBEDDING_MODEL` | Embedding model used on failover |
+**Install before first run**
 
-## Run locally
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Engine + Compose v2)
+- [NVIDIA drivers](https://www.nvidia.com/Download/index.aspx) if you use the `gpu` profile
+- [Ollama](https://ollama.com/download) only if you run the gateway with `uvicorn` against a host Ollama; Compose already starts `seki-v2-ollama`
+- Python 3.11+ only if you run the gateway without Docker
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
-cp .env.example .env   # set API_KEY and MODEL_NAME
+On Docker Desktop (WSL2), vLLM’s V2 runner needs `VLLM_WSL2_ENABLE_PIN_MEMORY=1` or it exits with `UVA is not available`. Compose sets that by default.
 
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+## Fresh install
+
+```powershell
+git clone https://github.com/PCMakia/seki-inference-engine.git
+cd seki-inference-engine
+Copy-Item .env.example .env
+# set API_KEY, and HF_TOKEN if you will start vLLM
 ```
 
-```bash
-curl -s http://localhost:8000/health
+**Compose, laptop (Ollama only):**
 
-curl -s http://localhost:8000/v1/chat/completions \
-  -H "Authorization: Bearer change-me" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"Qwen/Qwen2.5-3B-Instruct","messages":[{"role":"user","content":"hello"}]}'
-```
-
-## Docker Compose
-
-**Laptop (default):** gateway + Ollama only. vLLM is *not* started — a GTX 1660 Ti (6 GB) will typically OOM if both engines load. The gateway still tries vLLM first; the connection fails and traffic fails over to Ollama (`x-seki-backend: ollama`).
-
-```bash
-cp .env.example .env   # API_KEY=change-me is fine for local
+```powershell
 docker compose up --build
 ```
 
-**GPU box:** add the `gpu` profile (vLLM on host port `8001`).
+Wait until `GET http://localhost:9000/ready` is 200. Completions should show `x-seki-backend: ollama`.
 
-```bash
+**Compose, GPU box:**
+
+```powershell
 docker compose --profile gpu up --build
 ```
 
-Ollama has no GPU reservation so it does not fight vLLM for VRAM.
+Host ports (so a v1 stack can keep 8000 / 11434): gateway **9000**, vLLM debug **9001**, Ollama **9114**. Inside the mesh, containers still use 8000 / 11434.
 
-Prove the contract (from the host, after `/ready` is 200):
+**Without Docker:**
 
 ```powershell
-# liveness / readiness
-curl.exe -s http://localhost:8000/health
-curl.exe -s -w "`nHTTP %{http_code}`n" http://localhost:8000/ready
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements-dev.txt
+Copy-Item .env.example .env
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-# one completion — laptop should print x-seki-backend: ollama
-curl.exe -sD - http://localhost:8000/v1/chat/completions `
+Point `VLLM_BASE_URL` / `OLLAMA_BASE_URL` at whatever is actually running.
+
+## How to use it
+
+1. Set `API_KEY` in `.env`. Clients send `Authorization: Bearer <API_KEY>`.
+2. Chat:
+
+```powershell
+curl.exe -s http://localhost:9000/v1/chat/completions `
   -H "Authorization: Bearer change-me" `
   -H "Content-Type: application/json" `
-  -d "{\"model\":\"qwen2.5:3b\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hi in one word.\"}]}"
+  -d "{\"model\":\"Qwen/Qwen2.5-3B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}"
 ```
 
-Or: `powershell -File scripts/verify_gateway.ps1`
+3. Confirm the backend: response header `x-seki-backend` is `vllm` or `ollama`.
+4. Scrape `http://localhost:9000/metrics` (or `:8000` if you used uvicorn).
+5. From this repo: `powershell -File scripts/verify_gateway.ps1` after `/ready` is 200.
 
-GPU failover check: `docker stop seki-vllm`, then the same curl — header must be `x-seki-backend: ollama`. Start vLLM again with `docker compose --profile gpu up -d vllm`.
+`seki-agent-core` should use `INFERENCE_URL=http://localhost:9000/v1` on the host, or `http://seki-v2-inference:8000/v1` on the Compose network.
 
-See [docs/LAPTOP_DEMO.md](docs/LAPTOP_DEMO.md).
-
-## Tests
-
-```bash
-pip install -r requirements-dev.txt
-pytest
-```
-
-## Training (optional)
-
-QLoRA / GGUF export scripts remain under `agent-core/training/`. They are not
-part of the serving path. See [docs/QLORA_TRAINING.md](docs/QLORA_TRAINING.md).
+Failover: stop vLLM (`docker stop seki-v2-vllm`); the same curl should keep working with `x-seki-backend: ollama`. Laptop walkthrough: `docs/LAPTOP_DEMO.md`.
