@@ -37,6 +37,19 @@ chmod +x scripts/verify_gateway.sh
 
 Expect `x-seki-backend: ollama`.
 
+Live serial (warm model, short pings):
+
+```bash
+N=20 ./scripts/pressure_live.sh
+```
+
+Concurrent batches (does not go through Discord; this is raw GPU pile-up):
+
+```bash
+MODE=flash BATCH=16 python3 scripts/pressure_live_concurrent.py
+MODE=waves WAVE=8 DURATION=20 INTERVAL=2 python3 scripts/pressure_live_concurrent.py
+```
+
 ## 4. Parent mesh (Discord)
 
 From `Production-grade` (sibling repos):
@@ -61,3 +74,5 @@ User talk and autonomous announce share the same completion path.
 ## 6. Optional voice QLoRA (still 6 GB)
 
 `docs/QLORA_TRAINING.md` + `agent-core/training/train_unsloth.py` are 4-bit 3B on this card (batch 1). Do not train while Discord is generating. Overnight is expected. Export GGUF and `ollama create seki-qwen-3b`.
+
+Capacity numbers (queue, mention rate, vs MEE6 / Midjourney): sibling repo `seki-discord-bot/docs/PRESSURE_TEST.md`. Live Ollama timings: `docs/LIVE_PERFORMANCE.md`.
