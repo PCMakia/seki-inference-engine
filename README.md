@@ -92,6 +92,6 @@ Weights unload after `OLLAMA_KEEP_ALIVE` (default 5m). Discord stays connected. 
 
 ## Agent model A/B (`agent-model` branch)
 
-Compare **seki-qwen-3b** vs base Qwen through the full Production-grade mesh (agent-core + gateway). See **`docs/AGENT_MODEL_BENCHMARK.md`**, **`.env.agent-model.example`**, and **`scripts/bench_agent_models.py`**.
+Compare **seki-qwen-3b** vs base Qwen through the full Production-grade mesh (agent-core + gateway). See **`docs/AGENT_MODEL_BENCHMARK.md`**, **`docs/AGENT_MODEL_ENV.example`**, and **`scripts/bench_agent_models.py`**.
 
 Pair with **seki-agent-core** branch `agent-model` (`AGENT_IDENTITY=companion`, no secretary default).

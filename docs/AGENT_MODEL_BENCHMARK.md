@@ -17,7 +17,7 @@ Goal: decide whether the existing fine-tune beats base Qwen **without** Seki-v1 
    ```bash
    docker compose up --build
    ```
-3. **Arm A (base)** — use `.env.agent-model.example` Arm A vars; recreate inference + agent-core:
+3. **Arm A (base)** — use `docs/AGENT_MODEL_ENV.example` Arm A vars; recreate inference + agent-core:
    ```bash
    docker compose up -d --force-recreate inference agent-core
    ```
