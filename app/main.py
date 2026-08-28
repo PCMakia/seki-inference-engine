@@ -45,10 +45,12 @@ def create_app(*, inference_router: FailoverRouter | None = None) -> FastAPI:
         )
         app.state.router = FailoverRouter(ollama, None, settings)
         logger.info(
-            "gateway up ollama_model=%s ollama=%s timeout=%ss",
+            "gateway up ollama_model=%s ollama=%s timeout=%ss num_ctx=%s draft_k=%s",
             settings.ollama_model,
             settings.ollama_base_url,
             settings.request_timeout,
+            settings.ollama_num_ctx,
+            settings.ollama_draft_num_predict,
         )
         try:
             yield
@@ -58,7 +60,8 @@ def create_app(*, inference_router: FailoverRouter | None = None) -> FastAPI:
     application = FastAPI(
         title="seki-inference-engine",
         description=(
-            "OpenAI-compatible inference gateway for 6 GB Turing (Ollama / GGUF). "
+            "OpenAI-compatible inference gateway for 6 GB Turing. "
+            "dev-optimize: Qwen2.5-3B target + 0.5B draft (speculative decoding). "
             "vLLM is not started on this branch."
         ),
         version=__version__,

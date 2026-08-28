@@ -1,10 +1,10 @@
-# Ubuntu 6 GB (Low_ends_6GB)
+# Ubuntu 6 GB (dev-optimize)
 
 Target: Ubuntu + NVIDIA driver + Container Toolkit, **RTX 1660 Ti 6 GB**, 64 GB RAM, laptop-class i7.
 
-This branch runs **Ollama only**. There is no vLLM service and no `--profile gpu`. vLLM OOMs Turing 6 GB and fights the chat GGUF for VRAM.
+This branch **experimented** with **3B target + 0.5B draft** (`docs/SPECULATIVE_DECODING.md`). Fair bench on 1660 Ti showed spec is ~3× slower; **production on this branch uses target-only** (`./scripts/up_llamacpp.sh` → `llama-target`, or Ollama `qwen2.5:3b` on default compose). **`main`** ships Ollama-only with no draft path.
 
-There is **no** separate hardware-allocation script. Discord’s gateway stays up; Ollama loads GGUF weights on the first chat or 2-hour announce, then unloads after `OLLAMA_KEEP_ALIVE`.
+There is **no** separate hardware-allocation script. Discord’s gateway stays up; weights load on first chat, then unload after `OLLAMA_KEEP_ALIVE` (Ollama path).
 
 ## 1. Host prep
 
@@ -18,15 +18,13 @@ NVIDIA Container Toolkit must be installed so the Ollama service’s GPU reserva
 ## 2. Boot gateway + Ollama
 
 ```bash
-git checkout Low_ends_6GB
+git checkout dev-optimize
 cp .env.example .env
 # set API_KEY
 docker compose up --build -d
 ```
 
-Wait until `GET http://localhost:9000/ready` is 200 with `"ollama": true` and `"configured_primary": "ollama"`. First start pulls `qwen2.5:3b-instruct-q5_K_M` and `nomic-embed-text`.
-
-If that Q5 tag is missing from the library, set `OLLAMA_MODEL=qwen2.5:3b` and matching `OLLAMA_PULL_MODELS`.
+Wait until `GET http://localhost:9000/ready` is 200 with `"ollama": true` and `"configured_primary": "ollama"`. First start pulls `qwen2.5:3b`, `qwen2.5:0.5b`, and `nomic-embed-text`, then `ollama create seki-qwen-spec`.
 
 ## 3. Prove a completion
 
@@ -35,7 +33,7 @@ chmod +x scripts/verify_gateway.sh
 ./scripts/verify_gateway.sh
 ```
 
-Expect `x-seki-backend: ollama`.
+Expect `x-seki-backend: ollama`. Spec experiment (optional): `N=20 ./scripts/bench_speculative.sh` after `./scripts/up_llamacpp.sh`.
 
 Live serial (warm model, short pings):
 

@@ -46,6 +46,16 @@ class Settings(BaseSettings):
         default="nomic-embed-text",
         description="Embedding model name forwarded to Ollama.",
     )
+    ollama_num_ctx: int = Field(
+        default=2048,
+        ge=0,
+        description="Ollama num_ctx. 2048 keeps 3B+0.5B draft on 6 GB. 0 skips the option.",
+    )
+    ollama_draft_num_predict: int = Field(
+        default=8,
+        ge=0,
+        description="Speculative draft tokens per step (Leviathan k). 0 disables the option.",
+    )
 
     host: str = "0.0.0.0"
     port: int = 8000

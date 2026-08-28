@@ -1,0 +1,114 @@
+# llama.cpp overlay — production uses target-only (llama-target) on 6 GB Turing.
+# llama-spec (draft-simple) is profile "bench" only; see scripts/bench_speculative.sh.
+#
+#   ./scripts/up_llamacpp.sh
+
+services:
+  llama-target:
+    image: ${LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    container_name: seki-v2-llama-target
+    ports:
+      - "${LLAMA_TARGET_HOST_PORT:-9082}:8080"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    command:
+      - -m
+      - /models/target.gguf
+      - -c
+      - "${OLLAMA_NUM_CTX:-2048}"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - -ngl
+      - "99"
+      - --flash-attn
+      - on
+      - --parallel
+      - "1"
+      - --alias
+      - ${OLLAMA_TARGET_MODEL:-qwen2.5:3b}
+    volumes:
+      - ${OLLAMA_DATA_PATH:-./data/ollama}/gguf:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - seki-inference
+
+  llama-spec:
+    profiles: ["bench"]
+    image: ${LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    container_name: seki-v2-llama-spec
+    ports:
+      - "${LLAMA_SPEC_HOST_PORT:-9081}:8080"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    command:
+      - -m
+      - /models/target.gguf
+      - -md
+      - /models/draft.gguf
+      - --spec-type
+      - draft-simple
+      - --spec-draft-n-max
+      - "${LLAMA_SPEC_DRAFT_N_MAX:-8}"
+      - --spec-draft-p-min
+      - "${LLAMA_SPEC_DRAFT_P_MIN:-0.75}"
+      - -c
+      - "${OLLAMA_NUM_CTX:-2048}"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - -ngl
+      - "99"
+      - -ngld
+      - "99"
+      - --flash-attn
+      - on
+      - --parallel
+      - "1"
+      - --alias
+      - seki-qwen-spec
+    volumes:
+      - ${OLLAMA_DATA_PATH:-./data/ollama}/gguf:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - seki-inference
+
+  inference:
+    environment:
+      - OLLAMA_BASE_URL=http://llama-target:8080/v1
+      - OLLAMA_MODEL=${OLLAMA_TARGET_MODEL:-qwen2.5:3b}
+    depends_on:
+      ollama: !reset null
+      llama-spec: !reset null
+      llama-target:
+        condition: service_healthy

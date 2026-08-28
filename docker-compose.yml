@@ -1,4 +1,5 @@
-# Low_ends_6GB — Ubuntu / RTX 1660 Ti (6 GB). Ollama only.
+# Low_ends_6GB / dev-optimize — Ubuntu / RTX 1660 Ti (6 GB).
+# Speculative decoding: Qwen2.5-3B target + 0.5B draft (num_ctx 2048).
 # vLLM is not in this compose: it OOMs Turing 6 GB.
 #
 #   docker compose up --build
@@ -6,6 +7,7 @@
 # Host ports (9000s so v1 Seki can keep 8000 / 11434):
 #   9000  seki-v2-inference
 #   9114  seki-v2-ollama
+# Optional llama.cpp draft-simple overlay: docker-compose.llamacpp.yml
 
 services:
   ollama:
@@ -14,10 +16,16 @@ services:
     ports:
       - "${OLLAMA_HOST_PORT:-9114}:11434"
     environment:
-      - OLLAMA_PULL_MODELS=${OLLAMA_PULL_MODELS:-${OLLAMA_MODEL:-qwen2.5:3b-instruct-q5_K_M}}
+      - OLLAMA_PULL_MODELS=${OLLAMA_PULL_MODELS:-${OLLAMA_TARGET_MODEL:-qwen2.5:3b},${OLLAMA_DRAFT_MODEL:-qwen2.5:0.5b},${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}}
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
+      - OLLAMA_SPECULATIVE=${OLLAMA_SPECULATIVE:-0}
+      - OLLAMA_TARGET_MODEL=${OLLAMA_TARGET_MODEL:-qwen2.5:3b}
+      - OLLAMA_DRAFT_MODEL=${OLLAMA_DRAFT_MODEL:-qwen2.5:0.5b}
+      - OLLAMA_SPEC_MODEL=${OLLAMA_SPEC_MODEL:-seki-qwen-spec}
+      - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX:-2048}
+      - OLLAMA_DRAFT_NUM_PREDICT=${OLLAMA_DRAFT_NUM_PREDICT:-8}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     deploy:
@@ -39,7 +47,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 20s
+      start_period: 90s
     networks:
       - seki-inference
 
@@ -56,8 +64,10 @@ services:
       - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-300}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - OLLAMA_BASE_URL=http://ollama:11434/v1
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b-instruct-q5_K_M}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
       - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX:-2048}
+      - OLLAMA_DRAFT_NUM_PREDICT=${OLLAMA_DRAFT_NUM_PREDICT:-8}
     depends_on:
       ollama:
         condition: service_healthy
