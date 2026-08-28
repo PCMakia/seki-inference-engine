@@ -1,0 +1,64 @@
+# llama.cpp draft-simple when Ollama Modelfile DRAFT fails on CUDA GGUF.
+#   ./scripts/up_llamacpp.sh
+
+services:
+  llama-spec:
+    image: ${LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    container_name: seki-v2-llama-spec
+    ports:
+      - "${LLAMA_SPEC_HOST_PORT:-9081}:8080"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    command:
+      - -m
+      - /models/target.gguf
+      - -md
+      - /models/draft.gguf
+      - --spec-type
+      - draft-simple
+      - --spec-draft-n-max
+      - "${LLAMA_SPEC_DRAFT_N_MAX:-8}"
+      - -c
+      - "${OLLAMA_NUM_CTX:-2048}"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - -ngl
+      - "99"
+      - -ngld
+      - "99"
+      - --flash-attn
+      - on
+      - --parallel
+      - "1"
+      - --alias
+      - seki-qwen-spec
+    volumes:
+      - ${OLLAMA_DATA_PATH:-./data/ollama}/gguf:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      - seki-inference
+
+  inference:
+    environment:
+      - OLLAMA_BASE_URL=http://llama-spec:8080/v1
+      - OLLAMA_MODEL=${OLLAMA_SPEC_MODEL:-seki-qwen-spec}
+    depends_on:
+      ollama: !reset null
+      llama-spec:
+        condition: service_healthy
