@@ -31,7 +31,7 @@ services:
     command:
       - tr -d '\r' < /app/Execution_scripts/ollama_docker_entrypoint.sh > /tmp/ollama_docker_entrypoint.sh && chmod +x /tmp/ollama_docker_entrypoint.sh && /bin/sh /tmp/ollama_docker_entrypoint.sh
     volumes:
-      - ${OLLAMA_DATA_PATH:-/var/lib/seki/ollama}:/root/.ollama
+      - ${OLLAMA_DATA_PATH:-./data/ollama}:/root/.ollama
       - ./Execution_scripts:/app/Execution_scripts:ro
     restart: unless-stopped
     healthcheck:
@@ -53,7 +53,7 @@ services:
     environment:
       - API_KEY=${API_KEY:-change-me}
       - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-nomic-embed-text}
-      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-120}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-300}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - OLLAMA_BASE_URL=http://ollama:11434/v1
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b-instruct-q5_K_M}
