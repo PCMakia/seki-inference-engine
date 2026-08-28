@@ -41,4 +41,11 @@ else
   echo "[ollama entrypoint] OLLAMA_PULL_MODELS empty; skipping pull"
 fi
 
+if [ "${OLLAMA_SPECULATIVE:-1}" != "0" ]; then
+  echo "[ollama entrypoint] building speculative 3B+0.5B model"
+  tr -d '\r' < /app/Execution_scripts/create_speculative_model.sh > /tmp/create_speculative_model.sh
+  chmod +x /tmp/create_speculative_model.sh
+  /bin/sh /tmp/create_speculative_model.sh || echo "[ollama entrypoint] WARNING: speculative create failed"
+fi
+
 wait "$OLLAMA_PID"

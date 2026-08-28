@@ -102,14 +102,19 @@ class FailoverRouter:
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], str]:
         primary_payload = self._with_model(
-            payload, self._chat_model_for(self.primary.name)
+            payload,
+            self._chat_model_for(self.primary.name),
+            backend_name=self.primary.name,
         )
         fallback_fn = None
         if self.fallback is not None:
             fb = self.fallback
             fallback_fn = lambda: fb.chat_completions(
                 self._with_model(
-                    payload, self._chat_model_for(fb.name), force=True
+                    payload,
+                    self._chat_model_for(fb.name),
+                    force=True,
+                    backend_name=fb.name,
                 )
             )
         return await self._with_failover(
@@ -123,14 +128,19 @@ class FailoverRouter:
         payload: dict[str, Any],
     ) -> tuple[AsyncIterator[bytes], str]:
         primary_payload = self._with_model(
-            payload, self._chat_model_for(self.primary.name)
+            payload,
+            self._chat_model_for(self.primary.name),
+            backend_name=self.primary.name,
         )
         fallback_fn = None
         if self.fallback is not None:
             fb = self.fallback
             fallback_fn = lambda: fb.chat_completions_stream(
                 self._with_model(
-                    payload, self._chat_model_for(fb.name), force=True
+                    payload,
+                    self._chat_model_for(fb.name),
+                    force=True,
+                    backend_name=fb.name,
                 )
             )
         return await self._with_failover(
@@ -186,14 +196,23 @@ class FailoverRouter:
             "configured_primary": self.primary.name,
         }
 
-    @staticmethod
     def _with_model(
+        self,
         payload: dict[str, Any],
         model: str,
         *,
         force: bool = False,
+        backend_name: str | None = None,
     ) -> dict[str, Any]:
         forwarded = dict(payload)
         if force or not forwarded.get("model"):
             forwarded["model"] = model
+        if backend_name == BACKEND_OLLAMA:
+            opts = dict(forwarded["options"]) if isinstance(forwarded.get("options"), dict) else {}
+            if self.settings.ollama_num_ctx > 0:
+                opts.setdefault("num_ctx", self.settings.ollama_num_ctx)
+            if self.settings.ollama_draft_num_predict > 0:
+                opts.setdefault("draft_num_predict", self.settings.ollama_draft_num_predict)
+            if opts:
+                forwarded["options"] = opts
         return forwarded
