@@ -32,7 +32,7 @@ $headers = @{
   Authorization = "Bearer $key"
   "Content-Type" = "application/json"
 }
-$body = '{"model":"qwen2.5:3b","messages":[{"role":"user","content":"Say hi in one word."}],"max_tokens":16}'
+$body = '{"messages":[{"role":"user","content":"Say hi in one word."}],"max_tokens":16}'
 $chat = Invoke-WebRequest -Uri "$base/v1/chat/completions" -Method POST -Headers $headers -Body $body -UseBasicParsing
 $backend = $chat.Headers["x-seki-backend"]
 Write-Host "HTTP $($chat.StatusCode)"

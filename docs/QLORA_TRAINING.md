@@ -69,13 +69,7 @@ Still inside the Unsloth venv, from `agent-core/`:
 python training/train_unsloth.py
 ```
 
-**Windows + Triton:** plain `python` fails with `FileNotFoundError` / missing C compiler because MSVC is not on PATH. Use the launcher (loads `vcvars64`, sets `CC` to `cl.exe`, and points `CUDA_PATH` at your toolkit):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File training/run_train_windows.ps1
-```
-
-Your machine’s CUDA toolkit root is `C:\Library\CUDA_Toolkits` (12.8). Triton needs `bin\ptxas.exe`, `include\cuda.h`, and `lib\x64\cuda.lib` under that path — CUDA alone is not enough without MSVC in the same shell.
+This `Low_ends_6GB` branch does **not** include `run_train_windows.ps1` (MSVC / Triton on Windows). Train on the Ubuntu 1660 Ti box with a CUDA 12 Unsloth venv instead.
 
 > **Import order:** `train_unsloth.py` imports Unsloth **before** TRL on purpose. Importing `trl` first makes Unsloth leave `eos_token` as the placeholder `<EOS_TOKEN>`, which is not in Qwen2's vocabulary and crashes `SFTTrainer`.
 
