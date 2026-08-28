@@ -31,7 +31,7 @@ echo
 echo "== POST $base/v1/chat/completions =="
 hdr=$(mktemp)
 trap 'rm -f "$hdr"' EXIT
-curl -fsS "$base/v1/chat/completions" \
+curl -fsS --max-time 360 "$base/v1/chat/completions" \
   -H "Authorization: Bearer $key" \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"Say hi in one word."}],"max_tokens":16}' \

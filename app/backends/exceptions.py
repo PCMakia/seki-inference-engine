@@ -8,7 +8,7 @@ class BackendUnavailableError(Exception):
 
     def __init__(self, backend: str, message: str) -> None:
         self.backend = backend
-        super().__init__(message)
+        super().__init__(f"{backend}: {message}" if message else backend)
 
 
 class BackendHTTPError(Exception):
