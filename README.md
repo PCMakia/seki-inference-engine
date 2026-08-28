@@ -89,3 +89,9 @@ curl -sS http://localhost:9000/v1/chat/completions \
 5. Point `seki-agent-core` at `INFERENCE_URL=http://localhost:9000/v1` on the host, or `http://seki-v2-inference:8000/v1` on the Compose network.
 
 Weights unload after `OLLAMA_KEEP_ALIVE` (default 5m). Discord stays connected. Full host checklist: `docs/UBUNTU_6GB.md`.
+
+## Agent model A/B (`agent-model` branch)
+
+Compare **seki-qwen-3b** vs base Qwen through the full Production-grade mesh (agent-core + gateway). See **`docs/AGENT_MODEL_BENCHMARK.md`**, **`.env.agent-model.example`**, and **`scripts/bench_agent_models.py`**.
+
+Pair with **seki-agent-core** branch `agent-model` (`AGENT_IDENTITY=companion`, no secretary default).
