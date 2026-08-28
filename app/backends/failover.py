@@ -1,8 +1,7 @@
-"""vLLM primary with local Ollama fallback on timeout or connection error."""
+"""Ollama-first router; optional second backend for tests and leftover dual-engine setups."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -21,7 +20,9 @@ T = TypeVar("T")
 
 
 class InferenceBackend(Protocol):
-    """Minimal interface implemented by vLLM, Ollama, and test fakes."""
+    """Minimal interface implemented by Ollama, test fakes, and optional extras."""
+
+    name: str
 
     async def chat_completions(self, payload: dict[str, Any]) -> dict[str, Any]: ...
 
@@ -36,39 +37,53 @@ class InferenceBackend(Protocol):
 
 
 class FailoverRouter:
-    """Send traffic to vLLM; route to Ollama only on timeout or connection error."""
+    """Send traffic to the primary engine; fail over only when a second backend exists."""
 
     def __init__(
         self,
         primary: InferenceBackend,
-        fallback: InferenceBackend,
+        fallback: InferenceBackend | None,
         settings: Settings,
     ) -> None:
         self.primary = primary
         self.fallback = fallback
         self.settings = settings
 
+    def _chat_model_for(self, backend_name: str) -> str:
+        if backend_name == BACKEND_OLLAMA:
+            return self.settings.ollama_model
+        return self.settings.model_name
+
+    def _embed_model_for(self, backend_name: str) -> str:
+        if backend_name == BACKEND_OLLAMA:
+            return self.settings.ollama_embedding_model
+        return self.settings.embedding_model_name
+
     async def _with_failover(
         self,
         operation: str,
         primary_fn: Callable[[], Awaitable[T]],
-        fallback_fn: Callable[[], Awaitable[T]],
+        fallback_fn: Callable[[], Awaitable[T]] | None,
     ) -> tuple[T, str]:
         started = time.perf_counter()
-        backend = BACKEND_VLLM
+        backend = self.primary.name
         failover = False
         success = False
         try:
             try:
                 result = await primary_fn()
-                backend = BACKEND_VLLM
+                backend = self.primary.name
             except BackendUnavailableError as exc:
+                if self.fallback is None or fallback_fn is None:
+                    raise
                 failover = True
-                backend = BACKEND_OLLAMA
+                backend = self.fallback.name
                 logger.warning(
-                    "vLLM %s unavailable (%s); falling back to Ollama",
+                    "%s %s unavailable (%s); falling back to %s",
+                    self.primary.name,
                     operation,
                     exc,
+                    self.fallback.name,
                 )
                 result = await fallback_fn()
             success = True
@@ -86,51 +101,89 @@ class FailoverRouter:
         self,
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], str]:
-        primary_payload = self._with_model(payload, self.settings.model_name)
+        primary_payload = self._with_model(
+            payload, self._chat_model_for(self.primary.name)
+        )
+        fallback_fn = None
+        if self.fallback is not None:
+            fb = self.fallback
+            fallback_fn = lambda: fb.chat_completions(
+                self._with_model(
+                    payload, self._chat_model_for(fb.name), force=True
+                )
+            )
         return await self._with_failover(
             "chat",
             lambda: self.primary.chat_completions(primary_payload),
-            lambda: self.fallback.chat_completions(
-                self._with_model(payload, self.settings.ollama_model, force=True)
-            ),
+            fallback_fn,
         )
 
     async def chat_completions_stream(
         self,
         payload: dict[str, Any],
     ) -> tuple[AsyncIterator[bytes], str]:
-        primary_payload = self._with_model(payload, self.settings.model_name)
+        primary_payload = self._with_model(
+            payload, self._chat_model_for(self.primary.name)
+        )
+        fallback_fn = None
+        if self.fallback is not None:
+            fb = self.fallback
+            fallback_fn = lambda: fb.chat_completions_stream(
+                self._with_model(
+                    payload, self._chat_model_for(fb.name), force=True
+                )
+            )
         return await self._with_failover(
             "chat_stream",
             lambda: self.primary.chat_completions_stream(primary_payload),
-            lambda: self.fallback.chat_completions_stream(
-                self._with_model(payload, self.settings.ollama_model, force=True)
-            ),
+            fallback_fn,
         )
 
     async def embeddings(
         self,
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], str]:
-        primary_payload = self._with_model(payload, self.settings.embedding_model_name)
+        primary_payload = self._with_model(
+            payload, self._embed_model_for(self.primary.name)
+        )
+        fallback_fn = None
+        if self.fallback is not None:
+            fb = self.fallback
+            fallback_fn = lambda: fb.embeddings(
+                self._with_model(
+                    payload,
+                    self._embed_model_for(fb.name),
+                    force=True,
+                )
+            )
         return await self._with_failover(
             "embeddings",
             lambda: self.primary.embeddings(primary_payload),
-            lambda: self.fallback.embeddings(
-                self._with_model(
-                    payload, self.settings.ollama_embedding_model, force=True
-                )
-            ),
+            fallback_fn,
         )
 
     async def readiness(self) -> dict[str, Any]:
-        vllm_ok, ollama_ok = await asyncio.gather(self.primary.ping(), self.fallback.ping())
-        ready = vllm_ok or ollama_ok
+        primary_ok = await self.primary.ping()
+        fallback_ok = False
+        if self.fallback is not None:
+            fallback_ok = await self.fallback.ping()
+        by_name = {self.primary.name: primary_ok}
+        if self.fallback is not None:
+            by_name[self.fallback.name] = fallback_ok
+        ready = primary_ok or fallback_ok
+        reported_primary: str | None
+        if primary_ok:
+            reported_primary = self.primary.name
+        elif fallback_ok and self.fallback is not None:
+            reported_primary = self.fallback.name
+        else:
+            reported_primary = None
         return {
             "status": "ready" if ready else "not_ready",
-            "vllm": vllm_ok,
-            "ollama": ollama_ok,
-            "primary": BACKEND_VLLM if vllm_ok else (BACKEND_OLLAMA if ollama_ok else None),
+            "vllm": bool(by_name.get(BACKEND_VLLM, False)),
+            "ollama": bool(by_name.get(BACKEND_OLLAMA, False)),
+            "primary": reported_primary,
+            "configured_primary": self.primary.name,
         }
 
     @staticmethod

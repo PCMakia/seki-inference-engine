@@ -37,37 +37,29 @@ def create_app(*, inference_router: FailoverRouter | None = None) -> FastAPI:
             yield
             return
 
-        primary = OpenAICompatBackend(
-            name="vllm",
-            base_url=settings.vllm_base_url,
-            timeout=settings.request_timeout,
-            api_key=settings.vllm_api_key,
-        )
-        fallback = OpenAICompatBackend(
+        ollama = OpenAICompatBackend(
             name="ollama",
             base_url=settings.ollama_base_url,
             timeout=settings.request_timeout,
             api_key="ollama",
         )
-        app.state.router = FailoverRouter(primary, fallback, settings)
+        app.state.router = FailoverRouter(ollama, None, settings)
         logger.info(
-            "gateway up model=%s vllm=%s ollama=%s timeout=%ss",
-            settings.model_name,
-            settings.vllm_base_url,
+            "gateway up ollama_model=%s ollama=%s timeout=%ss",
+            settings.ollama_model,
             settings.ollama_base_url,
             settings.request_timeout,
         )
         try:
             yield
         finally:
-            await primary.aclose()
-            await fallback.aclose()
+            await ollama.aclose()
 
     application = FastAPI(
         title="seki-inference-engine",
         description=(
-            "OpenAI-compatible inference gateway. Primary backend is vLLM; "
-            "requests fail over to local Ollama on timeout or connection error."
+            "OpenAI-compatible inference gateway for 6 GB Turing (Ollama / GGUF). "
+            "vLLM is not started on this branch."
         ),
         version=__version__,
         lifespan=lifespan,

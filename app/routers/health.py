@@ -17,7 +17,7 @@ async def health() -> HealthResponse:
 
 @router.get("/ready")
 async def ready(request: Request) -> JSONResponse:
-    """Ready when at least one backend (vLLM or Ollama) answers `/models`."""
+    """Ready when Ollama (or an injected test backend) answers `/models`."""
     engine: FailoverRouter = request.app.state.router
     payload = await engine.readiness()
     status_code = 200 if payload["status"] == "ready" else 503

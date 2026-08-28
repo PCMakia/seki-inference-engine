@@ -17,12 +17,12 @@ class Settings(BaseSettings):
     )
 
     model_name: str = Field(
-        default="Qwen/Qwen2.5-3B-Instruct",
-        description="Primary chat model served by vLLM (Hugging Face id or served name).",
+        default="qwen2.5:3b-instruct-q5_K_M",
+        description="Unused when Ollama is the only engine; kept for dual-backend tests.",
     )
     embedding_model_name: str = Field(
         default="nomic-embed-text",
-        description="Primary embedding model name forwarded to vLLM.",
+        description="Embedding model name (Ollama nomic-embed-text on this branch).",
     )
     api_key: str = Field(
         default="",
@@ -31,29 +31,20 @@ class Settings(BaseSettings):
     request_timeout: float = Field(
         default=120.0,
         ge=1.0,
-        description="Upstream HTTP timeout in seconds for vLLM and Ollama.",
-    )
-
-    vllm_base_url: str = Field(
-        default="http://localhost:8001/v1",
-        description="OpenAI-compatible base URL for the primary vLLM server.",
-    )
-    vllm_api_key: str = Field(
-        default="EMPTY",
-        description="Token sent to vLLM (vLLM defaults to EMPTY when auth is disabled).",
+        description="Upstream HTTP timeout in seconds for Ollama.",
     )
 
     ollama_base_url: str = Field(
         default="http://localhost:11434/v1",
-        description="OpenAI-compatible base URL for the Ollama fallback.",
+        description="OpenAI-compatible base URL for Ollama.",
     )
     ollama_model: str = Field(
-        default="qwen2.5:3b",
-        description="Chat model name used when failing over to Ollama.",
+        default="qwen2.5:3b-instruct-q5_K_M",
+        description="Chat GGUF tag served by Ollama on a 6 GB card.",
     )
     ollama_embedding_model: str = Field(
         default="nomic-embed-text",
-        description="Embedding model name used when failing over to Ollama.",
+        description="Embedding model name forwarded to Ollama.",
     )
 
     host: str = "0.0.0.0"

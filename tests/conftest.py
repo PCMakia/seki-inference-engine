@@ -24,7 +24,6 @@ def test_settings() -> Settings:
         request_timeout=5.0,
         ollama_model="qwen2.5:3b",
         ollama_embedding_model="nomic-embed-text",
-        vllm_base_url="http://vllm.test/v1",
         ollama_base_url="http://ollama.test/v1",
     )
     return settings

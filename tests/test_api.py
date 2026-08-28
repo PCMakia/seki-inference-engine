@@ -24,6 +24,56 @@ def test_ready_when_vllm_up(client: TestClient) -> None:
     assert body["status"] == "ready"
     assert body["vllm"] is True
     assert body["primary"] == "vllm"
+    assert body["configured_primary"] == "vllm"
+
+
+def test_ready_ollama_only_reports_no_vllm(patched_settings) -> None:
+    router = FailoverRouter(FakeBackend("ollama"), None, patched_settings)
+    app = create_app(inference_router=router)
+    with TestClient(app) as client:
+        body = client.get("/ready").json()
+    assert body["status"] == "ready"
+    assert body["ollama"] is True
+    assert body["vllm"] is False
+    assert body["configured_primary"] == "ollama"
+
+
+def test_ready_ollama_as_configured_primary(patched_settings) -> None:
+    router = FailoverRouter(
+        FakeBackend("ollama"),
+        FakeBackend("vllm", ping_ok=False),
+        patched_settings,
+    )
+    app = create_app(inference_router=router)
+    with TestClient(app) as client:
+        response = client.get("/ready")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ollama"] is True
+    assert body["vllm"] is False
+    assert body["primary"] == "ollama"
+    assert body["configured_primary"] == "ollama"
+
+
+def test_chat_ollama_primary_does_not_call_vllm(
+    patched_settings,
+    vllm_backend: FakeBackend,
+    ollama_backend: FakeBackend,
+    auth_headers: dict[str, str],
+) -> None:
+    router = FailoverRouter(ollama_backend, vllm_backend, patched_settings)
+    app = create_app(inference_router=router)
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            json={"messages": [{"role": "user", "content": "hi"}]},
+            headers=auth_headers,
+        )
+    assert response.status_code == 200
+    assert response.headers["x-seki-backend"] == "ollama"
+    assert vllm_backend.chat_calls == []
+    assert ollama_backend.chat_calls
+    assert ollama_backend.chat_calls[0]["model"] == "qwen2.5:3b"
 
 
 def test_ready_503_when_both_down(patched_settings) -> None:

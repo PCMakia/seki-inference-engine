@@ -52,5 +52,9 @@ class ReadyResponse(BaseModel):
     ollama: bool
     primary: str | None = Field(
         default=None,
-        description="Backend that would be attempted first when healthy.",
+        description="Healthy backend the gateway will use first.",
+    )
+    configured_primary: str | None = Field(
+        default=None,
+        description="Name of the engine this process is configured to use first.",
     )
