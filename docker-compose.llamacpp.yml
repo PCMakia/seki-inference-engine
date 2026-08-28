@@ -1,4 +1,6 @@
-# llama.cpp overlay — target + spec services for fair bench on :9082 / :9081.
+# llama.cpp overlay — production uses target-only (llama-target) on 6 GB Turing.
+# llama-spec (draft-simple) is profile "bench" only; see scripts/bench_speculative.sh.
+#
 #   ./scripts/up_llamacpp.sh
 
 services:
@@ -47,6 +49,7 @@ services:
       - seki-inference
 
   llama-spec:
+    profiles: ["bench"]
     image: ${LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
     container_name: seki-v2-llama-spec
     ports:
@@ -102,9 +105,10 @@ services:
 
   inference:
     environment:
-      - OLLAMA_BASE_URL=http://llama-spec:8080/v1
-      - OLLAMA_MODEL=${OLLAMA_SPEC_MODEL:-seki-qwen-spec}
+      - OLLAMA_BASE_URL=http://llama-target:8080/v1
+      - OLLAMA_MODEL=${OLLAMA_TARGET_MODEL:-qwen2.5:3b}
     depends_on:
       ollama: !reset null
-      llama-spec:
+      llama-spec: !reset null
+      llama-target:
         condition: service_healthy
