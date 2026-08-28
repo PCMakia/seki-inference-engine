@@ -15,6 +15,13 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 gguf="${GGUF_PATH:-$root/agent-core/seki-qwen-3b/unsloth.Q5_K_M.gguf}"
 modelfile_dir="${MODELFILE_DIR:-$root/agent-core/seki-qwen-3b_gguf}"
 ollama_host="${OLLAMA_HOST:-http://127.0.0.1:${OLLAMA_HOST_PORT:-9114}}"
+ollama_container=""
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx test-seki-ollama; then
+  ollama_container=test-seki-ollama
+  ollama_host="${OLLAMA_HOST:-http://127.0.0.1:${TEST_OLLAMA_HOST_PORT:-9124}}"
+elif docker ps --format '{{.Names}}' 2>/dev/null | grep -qx seki-v2-ollama; then
+  ollama_container=seki-v2-ollama
+fi
 
 if [ ! -f "$gguf" ]; then
   echo "ERROR: GGUF not found at: $gguf" >&2
@@ -39,10 +46,10 @@ curl -fsS "$ollama_host/api/tags" >/dev/null || {
 }
 
 # ollama create must run where the daemon can read the GGUF; use docker exec when containerized.
-if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx seki-v2-ollama; then
-  docker cp "$work/seki-qwen-3b.Q5_K_M.gguf" seki-v2-ollama:/tmp/seki-qwen-3b.Q5_K_M.gguf
-  docker cp "$work/Modelfile" seki-v2-ollama:/tmp/Modelfile
-  docker exec -w /tmp seki-v2-ollama ollama create seki-qwen-3b -f Modelfile
+if [ -n "$ollama_container" ]; then
+  docker cp "$work/seki-qwen-3b.Q5_K_M.gguf" "$ollama_container:/tmp/seki-qwen-3b.Q5_K_M.gguf"
+  docker cp "$work/Modelfile" "$ollama_container:/tmp/Modelfile"
+  docker exec -w /tmp "$ollama_container" ollama create seki-qwen-3b -f Modelfile
 else
   (cd "$work" && ollama create seki-qwen-3b -f Modelfile)
 fi

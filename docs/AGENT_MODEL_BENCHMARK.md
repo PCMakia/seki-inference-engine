@@ -13,20 +13,47 @@ Goal: decide whether the existing fine-tune beats base Qwen **without** Seki-v1 
 1. Checkout branches:
    - `seki-inference-engine`: `agent-model`
    - `seki-agent-core`: `agent-model`
-2. Start mesh from Production-grade root:
-   ```bash
-   docker compose up --build
+2. Start the **isolated test stack** from Production-grade root (does not touch `seki-v2-*`):
+
+   **Windows:**
+   ```powershell
+   .\scripts\up_agent_model_test.ps1 -Build
    ```
-3. **Arm A (base)** — use `docs/AGENT_MODEL_ENV.example` Arm A vars; recreate inference + agent-core:
+
+   **Linux / WSL:**
    ```bash
-   docker compose up -d --force-recreate inference agent-core
+   chmod +x seki-inference-engine/scripts/up_agent_model_test.sh
+   ./seki-inference-engine/scripts/up_agent_model_test.sh --build
    ```
-4. Run benchmark:
+
+   Or manually:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.agent-model.test.yml up -d --build ollama inference agent-core
+   ```
+
+   Test containers: `test-seki-ollama`, `test-seki-inference`, `test-seki-agent-core`  
+   Test ports: **9100** (gateway), **9180** (agent), **9124** (Ollama)
+
+   Production (`seki-v2-*` on 9000/9080/9114) can keep running, but **only one Ollama should use the GPU** — stop prod Ollama if VRAM is tight:
+   ```bash
+   docker stop seki-v2-ollama
+   ```
+
+3. **Arm A (base)** — set model vars in `.env`, then recreate the **test** stack only:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.agent-model.test.yml up -d --force-recreate ollama inference agent-core
+   ```
+4. Run benchmark (defaults target test ports 9180 / 9124):
    ```bash
    python3 seki-inference-engine/scripts/bench_agent_models.py \
      --expected-model qwen2.5:3b-instruct-q5_K_M --label base-qwen
    ```
-5. **Arm B (fine-tune)** — export/install GGUF (below), switch env to `seki-qwen-3b`, recreate, bench again with `--label seki-qwen`.
+5. **Arm B (fine-tune)** — export/install GGUF (below), switch env to `seki-qwen-3b`, recreate test stack, bench again with `--label seki-qwen`.
+
+Stop the test stack when done:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.agent-model.test.yml down
+```
 
 Results append to `bench_agent_models_results.jsonl`.
 
