@@ -1,16 +1,37 @@
 # seki-inference-engine
 
-OpenAI-compatible FastAPI gateway in front of **Ollama** (GGUF on a 6 GB Turing card). Other Seki services do not import this package; they call `/v1/chat/completions` and `/v1/embeddings`.
+OpenAI-compatible FastAPI gateway in front of **Ollama** or **llama.cpp** (GGUF on a 6 GB Turing card). Other Seki services do not import this package; they call `/v1/chat/completions` and `/v1/embeddings`.
 
-This git branch is **`Low_ends_6GB`**. It does not ship vLLM, Windows Unsloth launchers, or TTS.
+This git branch is **`dev-optimize`** (from `Low_ends_6GB`). It **experimented** with Qwen2.5-3B + 0.5B speculative decoding. It does not ship vLLM, Windows Unsloth launchers, or TTS.
+
+## `dev-optimize` vs `main` (production)
+
+| | **`main` / `Low_ends_6GB`** | **`dev-optimize` (this branch)** |
+|---|---|---|
+| **Chat model** | Ollama `qwen2.5:3b` only | Same 3B weights; optional llama.cpp overlay |
+| **Speculative draft** | Not used | Researched (Ollama `DRAFT` + llama.cpp `draft-simple`) |
+| **Production path** | `docker compose up` → Ollama | `./scripts/up_llamacpp.sh` → **target-only** `llama-target` |
+| **Goal** | Stable Discord on 6 GB | Measure if draft decoding beats plain 3B |
+
+**What we measured on RTX 1660 Ti (fair sequential bench, long prompt):**
+
+- **Target-only** (`llama-target`, 3B only): ~**3.6 s** mean per completion  
+- **Spec** (`llama-spec`, 3B + 0.5B draft, ~83% acceptance): ~**10 s** mean  
+- **Speedup ~0.35×** — speculation is **~3× slower**, not 25% faster  
+
+Draft acceptance was good; **per-block draft+verify overhead on Turing 6 GB** dominates. Running two CUDA servers on one card also polluted earlier benches.
+
+**Therefore on this branch, production (Discord) uses target-only serving:** gateway → `llama-target` (`qwen2.5:3b`), not `llama-spec`. The draft stack remains under Compose profile `bench` for `scripts/bench_speculative.sh` only.
+
+On **`main`**, you never need the llama overlay — Ollama serves plain `qwen2.5:3b` and that is already target-only.
 
 ## What this solves (and why it matters)
 
-A 6 GB card cannot keep a vLLM server resident and still leave headroom for Discord. This repo is the serving contract for that box: one Bearer-auth `/v1` API, one Ollama GGUF, and a header (`x-seki-backend`) that shows Ollama answered.
+A 6 GB card cannot keep a vLLM server resident and still leave headroom for Discord. This repo is the serving contract for that box: one Bearer-auth `/v1` API, a **3B chat GGUF**, and a header (`x-seki-backend`) that shows which backend answered.
 
 Give it a try if you:
 
-- Need **Ollama-first serving on an RTX 1660 Ti** without a vLLM connect miss on every Discord turn
+- Need **Ollama-first or llama.cpp serving on an RTX 1660 Ti** without a vLLM connect miss on every Discord turn
 - Want weights to **unload after idle** (`OLLAMA_KEEP_ALIVE`) while the Discord gateway stays connected
 - Want **Prometheus** on gateway wall time (`GET /metrics`)
 - Are showing **ML platform / inference** work: health vs ready, timeouts vs application 4xx, CI that builds the image
@@ -20,7 +41,7 @@ It does **not** host the Discord personality or the memory graph. Those live in 
 | Method | Path | Auth | Role |
 |---|---|---|---|
 | `GET` | `/health` | no | Process is up |
-| `GET` | `/ready` | no | Ollama can list models |
+| `GET` | `/ready` | no | Upstream can list models |
 | `GET` | `/metrics` | no | Prometheus scrape |
 | `POST` | `/v1/chat/completions` | Bearer | Chat (streaming supported) |
 | `POST` | `/v1/embeddings` | Bearer | Embeddings |
@@ -29,7 +50,8 @@ It does **not** host the Discord personality or the memory graph. Those live in 
 
 **RTX / GTX 1660 Ti (6 GB Turing)** or similar. 64 GB system RAM is ample; VRAM is the limit.
 
-- One quantized **3B** chat GGUF (`qwen2.5:3b-instruct-q5_K_M` or `qwen2.5:3b`) plus `nomic-embed-text`
+- One quantized **3B** chat GGUF (`qwen2.5:3b`); draft GGUF only if you run the spec bench profile
+- `nomic-embed-text` for embeddings (Ollama path)
 - [Docker Engine](https://docs.docker.com/engine/install/) + Compose v2
 - NVIDIA driver + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 - Python 3.11+ only if you run the gateway without Docker
@@ -43,7 +65,7 @@ Optional overnight fine-tune: 4-bit QLoRA of Qwen2.5-3B (`docs/QLORA_TRAINING.md
 ```bash
 git clone https://github.com/PCMakia/seki-inference-engine.git
 cd seki-inference-engine
-git checkout Low_ends_6GB
+git checkout dev-optimize   # or main for Ollama-only production
 cp .env.example .env
 # set API_KEY
 sudo mkdir -p /var/lib/seki/ollama
@@ -51,9 +73,20 @@ sudo chown "$USER:$USER" /var/lib/seki/ollama
 docker compose up --build -d
 ```
 
-Wait until `GET http://localhost:9000/ready` is 200. Completions should show `x-seki-backend: ollama`.
+Wait until `GET http://localhost:9000/ready` is 200.
 
-Host ports (so a v1 stack can keep 8000 / 11434): gateway **9000**, Ollama **9114**. Inside the mesh, containers still use 8000 / 11434.
+**Ollama path (default compose, same as `main`):** completions use `qwen2.5:3b` via Ollama.
+
+**llama.cpp path (this branch, 6 GB production after spec experiment):**
+
+```bash
+chmod +x scripts/up_llamacpp.sh
+./scripts/up_llamacpp.sh
+```
+
+Gateway points at **target-only** `llama-target` (`OLLAMA_BASE_URL=http://llama-target:8080/v1`, model `qwen2.5:3b`). Host ports: gateway **9000**, llama-target **9082**.
+
+Host ports (Ollama stack): gateway **9000**, Ollama **9114**. Inside the mesh, containers still use 8000 / 11434.
 
 **Without Docker** (Ollama already on the host):
 
@@ -86,18 +119,17 @@ curl -sS http://localhost:9000/v1/chat/completions \
 ```
 
 4. Scrape `http://localhost:9000/metrics`.
-5. Point `seki-agent-core` at `INFERENCE_URL=http://localhost:9000/v1` on the host, or `http://seki-v2-inference:8000/v1` on the Compose network.
+5. Spec experiment (optional): `N=20 ./scripts/bench_speculative.sh` — see `docs/SPECULATIVE_DECODING.md` and **`docs/SPEC_EXPERIMENT_REPORT.md`** (full results and merge plan).
+6. Point `seki-agent-core` at `INFERENCE_URL=http://localhost:9000/v1` on the host, or `http://seki-v2-inference:8000/v1` on the Compose network.
 
-Weights unload after `OLLAMA_KEEP_ALIVE` (default 5m). Discord stays connected. Full host checklist: `docs/UBUNTU_6GB.md`.
+Weights unload after `OLLAMA_KEEP_ALIVE` (default 5m) on the Ollama path. Full host checklist: `docs/UBUNTU_6GB.md`.
 
-## Agent model A/B (`agent-model` branch)
+## Agent model (`seki-qwen-3b`)
 
-Compare **seki-qwen-3b** vs base Qwen through the full Production-grade mesh (agent-core + gateway). See **`docs/AGENT_MODEL_BENCHMARK.md`**, **`docs/AGENT_MODEL_ENV.example`**, and **`scripts/bench_agent_models.py`**.
+Production chat default is **`seki-qwen-3b`** (QLoRA fine-tune). Register the GGUF with `scripts/install_seki_qwen_ollama.sh` after export.
 
-Pair with **seki-agent-core** branch `agent-model` (`AGENT_IDENTITY=companion`, no secretary default).
+- **Report:** `docs/AGENT_MODEL_REPORT.md`
+- **Bench:** `scripts/bench_agent_models.py` + `docs/AGENT_MODEL_BENCHMARK.md`
+- Pairs with **seki-agent-core** `AGENT_IDENTITY=companion`
 
-**Decision report:** `docs/AGENT_MODEL_REPORT.md` — ship **`seki-qwen-3b`** (2026-08-29 A/B).
-
-**Isolated test stack** (standalone compose, ports 10000/10080/11114): from Production-grade root,  
-`docker compose -f docker-compose.agent-model.test.yml up -d --build`  
-or `scripts/up_agent_model_test.ps1` / `scripts/up_agent_model_test.sh`.
+Optional spec experiment (base `qwen2.5:3b` + draft): `docs/SPECULATIVE_DECODING.md`, `scripts/bench_speculative.sh` — not used for Discord production.
