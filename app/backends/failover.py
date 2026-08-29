@@ -97,12 +97,18 @@ class FailoverRouter:
                 success=success,
             )
 
+    def _should_force_backend_model(self, backend_name: str) -> bool:
+        """Ollama expects local GGUF tags, not HuggingFace IDs from clients."""
+        return backend_name == BACKEND_OLLAMA
+
     async def chat_completions(
         self,
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], str]:
         primary_payload = self._with_model(
-            payload, self._chat_model_for(self.primary.name)
+            payload,
+            self._chat_model_for(self.primary.name),
+            force=self._should_force_backend_model(self.primary.name),
         )
         fallback_fn = None
         if self.fallback is not None:
@@ -123,7 +129,9 @@ class FailoverRouter:
         payload: dict[str, Any],
     ) -> tuple[AsyncIterator[bytes], str]:
         primary_payload = self._with_model(
-            payload, self._chat_model_for(self.primary.name)
+            payload,
+            self._chat_model_for(self.primary.name),
+            force=self._should_force_backend_model(self.primary.name),
         )
         fallback_fn = None
         if self.fallback is not None:

@@ -161,7 +161,18 @@ Run A/B with AGENT_IDENTITY=companion
 | `AGENT_IDENTITY` | `companion` | `companion` |
 | `AGENT_DEFAULT_MODE` | `BANTERING` | `BANTERING` |
 
-**Important:** set all three model vars to the same Ollama tag. The gateway forwards the client `model` field when set; mismatched `INFERENCE_MODEL` can confuse Ollama.
+**Important:** set all three model vars to the same Ollama tag. The gateway remaps client HuggingFace IDs (e.g. `Qwen/Qwen2.5-3B-Instruct`) to `OLLAMA_MODEL` automatically, but `INFERENCE_MODEL` in compose should still match the Ollama tag for clarity.
+
+### HTTP 404 `model 'Qwen/Qwen2.5-3B-Instruct' not found`
+
+Not a port issue — agent-core reached the gateway, but Ollama only knows GGUF **tags** (`qwen2.5:3b-instruct-q5_K_M`), not HuggingFace names. Rebuild inference after pulling `agent-model`, or set in `.env`:
+
+```
+OLLAMA_MODEL=qwen2.5:3b-instruct-q5_K_M
+MODEL_NAME=qwen2.5:3b-instruct-q5_K_M
+```
+
+Then `docker compose -f docker-compose.agent-model.test.yml up -d --build inference agent-core`.
 
 ## Related docs
 
