@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # Register seki-qwen-3b in the Ollama volume used by docker-compose.
 #
-# Prerequisite: a Q5_K_M (or compatible) GGUF from training export, e.g.
-#   agent-core/seki-qwen-3b/unsloth.Q5_K_M.gguf
-# or copy from D:\AI_lab\Seki-Discord\agent-core after re-export.
+# WSL:
+#   export GGUF_PATH="/mnt/d/AI_lab/Seki-Discord/agent-core/seki-qwen-3b_gguf/qwen2.5-3b-instruct.Q5_K_M.gguf"
+#   export OLLAMA_HOST="http://127.0.0.1:11114"
+#   bash scripts/install_seki_qwen_ollama.sh
 #
-#   chmod +x scripts/install_seki_qwen_ollama.sh
-#   GGUF_PATH=/path/to/unsloth.Q5_K_M.gguf ./scripts/install_seki_qwen_ollama.sh
-#
-# Then set OLLAMA_MODEL=seki-qwen-3b and recreate inference + agent-core.
+# If you see $'\r': command not found (Windows CRLF), run once:
+#   sed -i 's/\r$//' scripts/install_seki_qwen_ollama.sh
 
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-gguf="${GGUF_PATH:-$root/agent-core/seki-qwen-3b/unsloth.Q5_K_M.gguf}"
-modelfile_dir="${MODELFILE_DIR:-$root/agent-core/seki-qwen-3b_gguf}"
+default_gguf="/mnt/d/AI_lab/Seki-Discord/agent-core/seki-qwen-3b_gguf/qwen2.5-3b-instruct.Q5_K_M.gguf"
+gguf="${GGUF_PATH:-$default_gguf}"
+if [ ! -f "$gguf" ]; then
+  gguf="${GGUF_PATH:-$root/agent-core/seki-qwen-3b/unsloth.Q5_K_M.gguf}"
+fi
+
 ollama_host="${OLLAMA_HOST:-http://127.0.0.1:${OLLAMA_HOST_PORT:-9114}}"
 ollama_container=""
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx test-seki-ollama; then
@@ -25,7 +28,7 @@ fi
 
 if [ ! -f "$gguf" ]; then
   echo "ERROR: GGUF not found at: $gguf" >&2
-  echo "Export from checkpoint (see docs/AGENT_MODEL_BENCHMARK.md § Export) or set GGUF_PATH." >&2
+  echo "Set GGUF_PATH to your exported .gguf file." >&2
   exit 1
 fi
 
@@ -45,7 +48,6 @@ curl -fsS "$ollama_host/api/tags" >/dev/null || {
   exit 1
 }
 
-# ollama create must run where the daemon can read the GGUF; use docker exec when containerized.
 if [ -n "$ollama_container" ]; then
   docker cp "$work/seki-qwen-3b.Q5_K_M.gguf" "$ollama_container:/tmp/seki-qwen-3b.Q5_K_M.gguf"
   docker cp "$work/Modelfile" "$ollama_container:/tmp/Modelfile"
