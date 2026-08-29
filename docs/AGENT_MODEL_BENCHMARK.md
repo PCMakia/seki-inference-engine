@@ -57,6 +57,8 @@ docker compose -f docker-compose.agent-model.test.yml down
 
 Results append to `bench_agent_models_results.jsonl`.
 
+**Final report:** `docs/AGENT_MODEL_REPORT.md` — decision to ship **`seki-qwen-3b`**.
+
 ## What changed on `agent-model`
 
 | Component | Change |

@@ -1,17 +1,19 @@
 # agent-model branch — A/B profile for seki-qwen-3b vs base Qwen on the 6 GB mesh.
 # Copy snippets into Production-grade/.env (root compose) for each arm.
 #
-# --- Arm A: base (control) ---
+# --- Production default (agent-model report 2026-08-29): seki-qwen-3b ---
+OLLAMA_MODEL=seki-qwen-3b
+OLLAMA_PULL_MODELS=nomic-embed-text
+MODEL_NAME=seki-qwen-3b
+INFERENCE_MODEL=seki-qwen-3b
+AGENT_IDENTITY=companion
+AGENT_DEFAULT_MODE=BANTERING
+
+# --- Arm A control (base Qwen) — bench only ---
 # OLLAMA_MODEL=qwen2.5:3b-instruct-q5_K_M
 # OLLAMA_PULL_MODELS=qwen2.5:3b-instruct-q5_K_M,nomic-embed-text
 # MODEL_NAME=qwen2.5:3b-instruct-q5_K_M
 # INFERENCE_MODEL=qwen2.5:3b-instruct-q5_K_M
-#
-# --- Arm B: fine-tuned Seki (after install_seki_qwen_ollama.sh) ---
-# OLLAMA_MODEL=seki-qwen-3b
-# OLLAMA_PULL_MODELS=nomic-embed-text
-# MODEL_NAME=seki-qwen-3b
-# INFERENCE_MODEL=seki-qwen-3b
 #
 # Agent-core (checkout seki-agent-core branch agent-model):
 # AGENT_IDENTITY=companion
@@ -26,9 +28,9 @@
 
 API_KEY=change-me
 INFERENCE_PRIMARY=ollama
-MODEL_NAME=qwen2.5:3b-instruct-q5_K_M
+MODEL_NAME=seki-qwen-3b
 EMBEDDING_MODEL_NAME=nomic-embed-text
-OLLAMA_MODEL=qwen2.5:3b-instruct-q5_K_M
-OLLAMA_PULL_MODELS=qwen2.5:3b-instruct-q5_K_M,nomic-embed-text
+OLLAMA_MODEL=seki-qwen-3b
+OLLAMA_PULL_MODELS=nomic-embed-text
 AGENT_IDENTITY=companion
 AGENT_DEFAULT_MODE=BANTERING

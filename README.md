@@ -96,6 +96,8 @@ Compare **seki-qwen-3b** vs base Qwen through the full Production-grade mesh (ag
 
 Pair with **seki-agent-core** branch `agent-model` (`AGENT_IDENTITY=companion`, no secretary default).
 
+**Decision report:** `docs/AGENT_MODEL_REPORT.md` — ship **`seki-qwen-3b`** (2026-08-29 A/B).
+
 **Isolated test stack** (standalone compose, ports 10000/10080/11114): from Production-grade root,  
 `docker compose -f docker-compose.agent-model.test.yml up -d --build`  
 or `scripts/up_agent_model_test.ps1` / `scripts/up_agent_model_test.sh`.
