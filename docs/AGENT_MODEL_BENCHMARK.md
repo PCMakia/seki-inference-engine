@@ -28,22 +28,22 @@ Goal: decide whether the existing fine-tune beats base Qwen **without** Seki-v1 
 
    Or manually:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.agent-model.test.yml up -d --build ollama inference agent-core
+   docker compose -f docker-compose.agent-model.test.yml up -d --build
    ```
 
    Test containers: `test-seki-ollama`, `test-seki-inference`, `test-seki-agent-core`  
-   Test ports: **9100** (gateway), **9180** (agent), **9124** (Ollama)
+   Test ports: **10000** (gateway), **10080** (agent), **11114** (Ollama), **10002** (WS)
 
    Production (`seki-v2-*` on 9000/9080/9114) can keep running, but **only one Ollama should use the GPU** — stop prod Ollama if VRAM is tight:
    ```bash
    docker stop seki-v2-ollama
    ```
 
-3. **Arm A (base)** — set model vars in `.env`, then recreate the **test** stack only:
+3. **Arm A (base)** — set model vars in `.env`, then recreate the test stack:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.agent-model.test.yml up -d --force-recreate ollama inference agent-core
+   docker compose -f docker-compose.agent-model.test.yml up -d --force-recreate
    ```
-4. Run benchmark (defaults target test ports 9180 / 9124):
+4. Run benchmark (defaults target test ports 10080 / 11114):
    ```bash
    python3 seki-inference-engine/scripts/bench_agent_models.py \
      --expected-model qwen2.5:3b-instruct-q5_K_M --label base-qwen
@@ -52,7 +52,7 @@ Goal: decide whether the existing fine-tune beats base Qwen **without** Seki-v1 
 
 Stop the test stack when done:
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.agent-model.test.yml down
+docker compose -f docker-compose.agent-model.test.yml down
 ```
 
 Results append to `bench_agent_models_results.jsonl`.

@@ -17,15 +17,12 @@
 # AGENT_IDENTITY=companion
 # AGENT_DEFAULT_MODE=BANTERING
 #
-# Bench (test stack on 9180 / 9124):
+# Bench (test stack on 10080 / 11114):
 #   python3 seki-inference-engine/scripts/bench_agent_models.py --expected-model qwen2.5:3b-instruct-q5_K_M --label base
 #   python3 seki-inference-engine/scripts/bench_agent_models.py --expected-model seki-qwen-3b --label seki
 #
-# Test stack ports (docker-compose.agent-model.test.yml at Production-grade root):
-# TEST_INFERENCE_HOST_PORT=9100
-# TEST_AGENT_HOST_PORT=9180
-# TEST_OLLAMA_HOST_PORT=9124
-# TEST_AGENT_DATA_PATH=./seki-agent-core/data-test
+# Test stack fixed ports (docker-compose.agent-model.test.yml):
+#   10000 inference | 10080 agent | 11114 ollama | 10002 WS
 
 API_KEY=change-me
 INFERENCE_PRIMARY=ollama

@@ -46,14 +46,11 @@ from typing import Any
 
 DEFAULT_AGENT = os.environ.get(
     "AGENT_BASE_URL",
-    os.environ.get("TEST_AGENT_BASE_URL", "http://127.0.0.1:9180"),
+    os.environ.get("TEST_AGENT_BASE_URL", "http://127.0.0.1:10080"),
 ).rstrip("/")
 DEFAULT_OLLAMA = os.environ.get(
     "OLLAMA_URL",
-    os.environ.get(
-        "TEST_OLLAMA_URL",
-        f"http://127.0.0.1:{os.environ.get('TEST_OLLAMA_HOST_PORT', '9124')}",
-    ),
+    os.environ.get("TEST_OLLAMA_URL", "http://127.0.0.1:11114"),
 ).rstrip("/")
 
 # Representative production-line turns (Discord companion, reasoning chain in prompt).

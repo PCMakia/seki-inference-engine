@@ -18,7 +18,7 @@ ollama_host="${OLLAMA_HOST:-http://127.0.0.1:${OLLAMA_HOST_PORT:-9114}}"
 ollama_container=""
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx test-seki-ollama; then
   ollama_container=test-seki-ollama
-  ollama_host="${OLLAMA_HOST:-http://127.0.0.1:${TEST_OLLAMA_HOST_PORT:-9124}}"
+  ollama_host="${OLLAMA_HOST:-http://127.0.0.1:11114}"
 elif docker ps --format '{{.Names}}' 2>/dev/null | grep -qx seki-v2-ollama; then
   ollama_container=seki-v2-ollama
 fi

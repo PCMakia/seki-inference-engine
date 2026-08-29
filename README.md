@@ -96,6 +96,6 @@ Compare **seki-qwen-3b** vs base Qwen through the full Production-grade mesh (ag
 
 Pair with **seki-agent-core** branch `agent-model` (`AGENT_IDENTITY=companion`, no secretary default).
 
-**Isolated test stack** (no `seki-v2-*` name clash): from Production-grade root,  
-`docker compose -f docker-compose.yml -f docker-compose.agent-model.test.yml up -d ollama inference agent-core`  
+**Isolated test stack** (standalone compose, ports 10000/10080/11114): from Production-grade root,  
+`docker compose -f docker-compose.agent-model.test.yml up -d --build`  
 or `scripts/up_agent_model_test.ps1` / `scripts/up_agent_model_test.sh`.
