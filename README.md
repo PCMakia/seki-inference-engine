@@ -123,3 +123,13 @@ curl -sS http://localhost:9000/v1/chat/completions \
 6. Point `seki-agent-core` at `INFERENCE_URL=http://localhost:9000/v1` on the host, or `http://seki-v2-inference:8000/v1` on the Compose network.
 
 Weights unload after `OLLAMA_KEEP_ALIVE` (default 5m) on the Ollama path. Full host checklist: `docs/UBUNTU_6GB.md`.
+
+## Agent model (`seki-qwen-3b`)
+
+Production chat default is **`seki-qwen-3b`** (QLoRA fine-tune). Register the GGUF with `scripts/install_seki_qwen_ollama.sh` after export.
+
+- **Report:** `docs/AGENT_MODEL_REPORT.md`
+- **Bench:** `scripts/bench_agent_models.py` + `docs/AGENT_MODEL_BENCHMARK.md`
+- Pairs with **seki-agent-core** `AGENT_IDENTITY=companion`
+
+Optional spec experiment (base `qwen2.5:3b` + draft): `docs/SPECULATIVE_DECODING.md`, `scripts/bench_speculative.sh` — not used for Discord production.

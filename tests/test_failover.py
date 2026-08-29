@@ -40,6 +40,16 @@ async def test_chat_fills_model_name_when_omitted(
 
 
 @pytest.mark.asyncio
+async def test_chat_ollama_primary_maps_client_model_to_ollama_tag(
+    test_settings,
+    ollama_backend: FakeBackend,
+) -> None:
+    router = FailoverRouter(ollama_backend, None, test_settings)
+    await router.chat_completions(CHAT_PAYLOAD)
+    assert ollama_backend.chat_calls[0]["model"] == "qwen2.5:3b"
+
+
+@pytest.mark.asyncio
 async def test_chat_fails_over_on_timeout(test_settings, ollama_backend: FakeBackend) -> None:
     primary = FakeBackend("vllm", chat_error=unavailable("vllm"))
     router = FailoverRouter(primary, ollama_backend, test_settings)

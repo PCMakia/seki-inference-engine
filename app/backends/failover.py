@@ -97,6 +97,10 @@ class FailoverRouter:
                 success=success,
             )
 
+    def _should_force_backend_model(self, backend_name: str) -> bool:
+        """Ollama expects local GGUF tags, not HuggingFace IDs from clients."""
+        return backend_name == BACKEND_OLLAMA
+
     async def chat_completions(
         self,
         payload: dict[str, Any],
@@ -104,6 +108,7 @@ class FailoverRouter:
         primary_payload = self._with_model(
             payload,
             self._chat_model_for(self.primary.name),
+            force=self._should_force_backend_model(self.primary.name),
             backend_name=self.primary.name,
         )
         fallback_fn = None
@@ -130,6 +135,7 @@ class FailoverRouter:
         primary_payload = self._with_model(
             payload,
             self._chat_model_for(self.primary.name),
+            force=self._should_force_backend_model(self.primary.name),
             backend_name=self.primary.name,
         )
         fallback_fn = None
